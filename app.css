@@ -284,9 +284,10 @@ code {
   background: var(--j-hell);
   color: var(--j-ton);
   font-size: 13.5px;
-  margin: 4px 0 0;
+  line-height: 1.5;
+  margin: 20px 0 0;
 }
-.stand { font-size: 12px; color: var(--text-leise); text-align: center; margin: 22px 0 0; }
+.stand { font-size: 12px; color: var(--text-leise); text-align: center; margin: 26px 0 0; }
 
 /* --------------------------------------------------------------- Leiste -- */
 
@@ -329,7 +330,7 @@ code {
   border: 1px solid var(--rand);
   border-radius: var(--radius);
   padding: 18px 16px 16px;
-  margin-bottom: 14px;
+  margin-bottom: 0;
 }
 
 .tafel-gitter {
@@ -448,22 +449,23 @@ code {
   pointer-events: none;
   z-index: 2;
 }
-.gleich span {
+.gleich::after {
+  content: '';
   position: absolute;
-  left: -52px;
-  top: -9px;
-  padding: 1px 7px;
-  border-radius: 999px;
+  left: -4px;
+  top: -4.5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: var(--akzent);
-  color: var(--grund);
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: .02em;
-  white-space: nowrap;
 }
 
+/* Eingefärbte Beschriftung statt Sprechblase — passt in die schmale Achse. */
+.achse .tick-gleich { color: var(--akzent); font-weight: 700; }
+.achse .tick-jetzt  { color: var(--jetzt);  font-weight: 700; }
+
 .zusammen {
-  margin: 14px 0 0;
+  margin: 18px 0 0;
   padding: 10px 12px;
   border-radius: 12px;
   background: color-mix(in srgb, var(--akzent) 12%, transparent);
@@ -471,10 +473,11 @@ code {
   font-size: 13.5px;
 }
 .zusammen b { color: var(--akzent); font-variant-numeric: tabular-nums; }
+.zusammen { line-height: 1.5; }
 
 /* --- Stundenliste unter der Tafel --- */
 
-.detail { margin-bottom: 14px; }
+.detail { margin: 22px 0 0; }
 .detail-kopf {
   display: flex;
   align-items: center;
@@ -487,7 +490,7 @@ code {
 .detail-punkt.j { background: var(--j-ton); }
 .detail-punkt.p { background: var(--p-ton); }
 
-.tipp { margin: 0; text-align: center; font-size: 12.5px; color: var(--text-leise); }
+.tipp { margin: 20px 0 0; text-align: center; font-size: 12.5px; color: var(--text-leise); }
 
 /* ---------------------------------------------------------- Blättern ------ */
 
@@ -500,4 +503,91 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .rein-r, .rein-l { animation: none; }
   .saeule { transition: none; }
+}
+
+/* ===================================================  Heute erkennbar machen */
+
+/* Nicht heute: der Kopf wird ruhiger und bekommt einen Streifen. */
+.kopf { border-bottom: 1px solid var(--rand); }
+
+.kopf.nicht-heute {
+  background: color-mix(in srgb, var(--text-leise) 8%, var(--grund));
+  border-bottom-color: color-mix(in srgb, var(--text-leise) 30%, transparent);
+}
+.kopf.nicht-heute .datum-tag { color: var(--text-leise); font-weight: 600; }
+
+/* Heute: die Kennzeichnung, die man ohne Lesen erkennt. */
+.kopf.ist-heute .datum-wochentag {
+  padding: 2.5px 11px 3px;
+  border-radius: 999px;
+  background: var(--akzent);
+  color: var(--grund);
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+/* --------------------------------------------------- Zurück-zu-heute-Knopf - */
+
+.zu-heute {
+  position: fixed;
+  left: 50%;
+  bottom: calc(74px + var(--unten));
+  z-index: 25;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 20px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--grund);
+  background: var(--akzent);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 5px 18px color-mix(in srgb, #000 28%, transparent);
+  cursor: pointer;
+  animation: knopfRein .22s ease-out both;
+}
+.zu-heute:active { transform: translateX(-50%) translateY(1px); }
+.zu-heute .zh-pfeil { font-size: 17px; line-height: 1; }
+
+@keyframes knopfRein {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.94); }
+}
+
+body.mit-heute-knopf { padding-bottom: calc(126px + var(--unten)); }
+
+/* ------------------------------------------------------------ Jetzt-Linie - */
+
+:root { --jetzt: #cf4a33; }
+@media (prefers-color-scheme: dark) { :root { --jetzt: #f2795f; } }
+
+.jetzt {
+  position: absolute;
+  left: 0; right: 0;
+  border-top: 2px solid var(--jetzt);
+  z-index: 3;
+  pointer-events: none;
+}
+.jetzt::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--jetzt);
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .zu-heute { animation: none; }
+}
+
+/* Sehr schmale Geräte: das Datum soll nicht umbrechen. */
+@media (max-width: 360px) {
+  .datum-tag { font-size: 15.5px; white-space: nowrap; }
+  .pfeil { flex-basis: 38px; }
 }

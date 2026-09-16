@@ -74,6 +74,24 @@ function dauerText(vonM, bisM) {
   return (h ? h + ' Std' : '') + (h && m ? ' ' : '') + (m ? m + ' Min' : '');
 }
 
+/** Abstand in Tagen zu heute. */
+function abstand(d) {
+  return Math.round((d - heute()) / 86400000);
+}
+
+/**
+ * Was in der Kopfzeile über dem Datum steht. Für heute bewusst nur "HEUTE" —
+ * das ist die Information, die man ohne Nachdenken erfassen soll.
+ */
+function tagesLabel(d) {
+  const n = abstand(d);
+  if (n === 0)  return 'Heute';
+  if (n === -1) return 'Gestern';
+  if (n === 1)  return 'Morgen';
+  if (n === 2)  return 'Übermorgen';
+  return WOCHENTAGE[d.getDay()];
+}
+
 const WOCHENTAGE = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const KURZ       = ['So','Mo','Di','Mi','Do','Fr','Sa'];
 const MONATE     = ['Januar','Februar','März','April','Mai','Juni','Juli',
@@ -137,8 +155,22 @@ function hatTag(d) { return !!tagDaten(d); }
 const $ = s => document.querySelector(s);
 
 function zeichne(richtung) {
-  $('#wochentag').textContent = WOCHENTAGE[TAG.getDay()];
+  const istHeute = abstand(TAG) === 0;
+
+  $('#wochentag').textContent = tagesLabel(TAG);
   $('#datumText').textContent = langesDatum(TAG);
+
+  const kopf = $('#kopf');
+  kopf.classList.toggle('ist-heute', istHeute);
+  kopf.classList.toggle('nicht-heute', !istHeute);
+
+  const knopf = $('#zuHeute');
+  knopf.hidden = istHeute;
+  document.body.classList.toggle('mit-heute-knopf', !istHeute);
+  if (!istHeute) {
+    $('#zhPfeil').textContent = abstand(TAG) > 0 ? '‹' : '›';
+  }
+
   zeichneHeute();
   zeichneWoche();
   if (richtung) {
@@ -234,31 +266,47 @@ function tagAnsicht(t) {
   const gleichAbholen = inSchule.length > 1 &&
     inSchule.every(k => t.kinder[k.kuerzel].abholen === t.kinder[inSchule[0].kuerzel].abholen);
 
-  // Stundenlinien und Beschriftung. Wo eine "beide"-Marke sitzt, trägt die
-  // schon die Uhrzeit — dort bleibt die Achse leer, sonst steht es doppelt.
-  let ticks = '', linien = '';
-  if (!gleichBringen) ticks += '<span class="tick" style="top:0">' + uhr(von) + '</span>';
-  for (let m = Math.ceil(von / 60) * 60; m < bis; m += 60) {
-    if (m - von < 26 || bis - m < 26) continue;       // zu nah am Rand
-    ticks  += '<span class="tick" style="top:' + y(m) + 'px">' + uhr(m) + '</span>';
-    linien += '<div class="linie" style="top:' + y(m) + 'px"></div>';
+  // Die aktuelle Uhrzeit, falls heute und im Bild
+  let jetztM = null;
+  if (abstand(TAG) === 0) {
+    const n = new Date();
+    const m = n.getHours() * 60 + n.getMinutes();
+    if (m >= von && m <= bis) jetztM = m;
   }
-  if (!gleichAbholen) {
-    ticks += '<span class="tick" style="top:' + hoehe + 'px">' + uhr(bis) + '</span>';
+
+  // Besondere Zeiten bekommen eine eingefärbte Beschriftung statt einer
+  // Sprechblase — die würde sonst über die Säulen ragen.
+  const sonder = {};
+  if (gleichBringen) sonder[von] = 'gleich';
+  if (gleichAbholen) sonder[bis] = 'gleich';
+  if (jetztM !== null) sonder[jetztM] = 'jetzt';
+
+  const tick = (m, art) =>
+    '<span class="tick' + (art ? ' tick-' + art : '') + '" style="top:' +
+    y(m) + 'px">' + uhr(m) + '</span>';
+
+  const nahAnSonder = m => Object.keys(sonder)
+    .some(x => Math.abs(y(Number(x)) - y(m)) < 15);
+
+  let ticks = tick(von, sonder[von]);
+  let linien = '';
+  for (let m = Math.ceil(von / 60) * 60; m < bis; m += 60) {
+    if (m - von < 26 || bis - m < 26) continue;      // zu nah am Rand
+    linien += '<div class="linie" style="top:' + y(m) + 'px"></div>';
+    if (!nahAnSonder(m)) ticks += tick(m);
+  }
+  ticks += tick(bis, sonder[bis]);
+  if (jetztM !== null && jetztM !== von && jetztM !== bis) {
+    ticks += tick(jetztM, 'jetzt');
   }
 
   // Säulen
   const spalten = kinder.map(k => saeule(k, t.kinder[k.kuerzel], von, bis, hoehe, y)).join('');
 
   let marken = '';
-  if (gleichBringen) {
-    marken += '<div class="gleich" style="top:' + y(von) + 'px">' +
-              '<span>' + uhr(von) + ' beide</span></div>';
-  }
-  if (gleichAbholen) {
-    marken += '<div class="gleich" style="top:' + y(bis) + 'px">' +
-              '<span>' + uhr(bis) + ' beide</span></div>';
-  }
+  if (gleichBringen) marken += '<div class="gleich" style="top:' + y(von) + 'px"></div>';
+  if (gleichAbholen) marken += '<div class="gleich" style="top:' + y(bis) + 'px"></div>';
+  if (jetztM !== null) marken += '<div class="jetzt" style="top:' + y(jetztM) + 'px"></div>';
 
   const tafel =
     '<div class="tafel">' +
@@ -434,12 +482,24 @@ document.querySelectorAll('.leiste button').forEach(b => {
 
 $('#zurueck').addEventListener('click', () => springe(-1));
 $('#vor').addEventListener('click',     () => springe(1));
-$('#datumKnopf').addEventListener('click', () => {
+function zurueckZuHeute() {
   const richtung = TAG < heute() ? 1 : (TAG > heute() ? -1 : 0);
   TAG = heute();
   GEWAEHLT = null;
   zeichne(richtung);
-});
+  if (!hatTag(TAG)) laden(TAG).catch(zeigeFehler);
+}
+
+$('#datumKnopf').addEventListener('click', zurueckZuHeute);
+$('#zuHeute').addEventListener('click', zurueckZuHeute);
+
+// Die Jetzt-Linie soll mitwandern, solange heute zu sehen ist.
+setInterval(function () {
+  if (document.hidden) return;
+  if (abstand(TAG) !== 0) return;
+  if ($('#seiteHeute').hidden) return;
+  zeichneHeute();
+}, 60000);
 
 function springe(n) {
   TAG = plus(TAG, n);

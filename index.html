@@ -16,7 +16,7 @@
 </head>
 <body>
 
-<header class="kopf">
+<header class="kopf" id="kopf">
   <button class="pfeil" id="zurueck" aria-label="Vorheriger Tag">‹</button>
   <button class="datum" id="datumKnopf">
     <span class="datum-wochentag" id="wochentag">—</span>
@@ -110,6 +110,10 @@
   </section>
 
 </main>
+
+<button class="zu-heute" id="zuHeute" hidden>
+  <span class="zh-pfeil" id="zhPfeil">‹</span> Zurück zu heute
+</button>
 
 <nav class="leiste">
   <button data-seite="Heute"    class="aktiv"><span>Heute</span></button>
