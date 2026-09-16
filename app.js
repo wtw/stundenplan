@@ -35,6 +35,15 @@ let DATEN  = null;      // Antwort des Backends
 let TAG    = heute();   // angezeigter Tag
 let GEWAEHLT = null;    // Kind, dessen Stunden gerade angezeigt werden
 let LAEUFT = false;
+let STARTTAG_GESETZT = false;
+let VERSTECKT_SEIT = null;
+
+/**
+ * So lange nach dem letzten Abholen bleibt der heutige Tag stehen. Danach
+ * öffnet die App auf dem nächsten Schultag — nachmittags interessiert
+ * niemanden mehr, wann heute Schule war.
+ */
+const VORSCHAU_AB_MINUTEN = 120;
 
 // -------------------------------------------------------------- Datumshilfen --
 
@@ -139,7 +148,61 @@ async function laden(zielDatum) {
   } finally {
     LAEUFT = false;
   }
+  if (!STARTTAG_GESETZT) {
+    STARTTAG_GESETZT = true;
+    starttagWaehlen();
+  }
   zeichne();
+}
+
+/** Späteste Abholzeit des Tages, oder null wenn niemand Schule hat. */
+function letztesAbholen(d) {
+  const t = tagDaten(d);
+  if (!t) return null;
+  let spaet = null;
+  (DATEN.kinder || []).forEach(k => {
+    const x = t.kinder[k.kuerzel];
+    if (x && x.schule) {
+      const m = mn(x.abholen);
+      if (spaet === null || m > spaet) spaet = m;
+    }
+  });
+  return spaet;
+}
+
+function hatSchule(d) {
+  const t = tagDaten(d);
+  return !!(t && (DATEN.kinder || []).some(k => t.kinder[k.kuerzel] && t.kinder[k.kuerzel].schule));
+}
+
+function naechsterSchultag(ab) {
+  for (let i = 0; i < 14; i++) {
+    const d = plus(ab, i);
+    if (!tagDaten(d)) return null;          // außerhalb der geladenen Daten
+    if (hatSchule(d)) return d;
+  }
+  return null;
+}
+
+/**
+ * Welchen Tag die App beim Öffnen zeigt.
+ * Heute, solange heute noch etwas ansteht — sonst der nächste Schultag.
+ */
+function starttagWaehlen() {
+  if (!DATEN) return false;
+  const h = heute();
+  const n = new Date();
+  const jetzt = n.getHours() * 60 + n.getMinutes();
+  const ende = letztesAbholen(h);
+
+  const vorbei = (ende === null) || (jetzt >= ende + VORSCHAU_AB_MINUTEN);
+  if (!vorbei) return false;
+
+  const ziel = naechsterSchultag(plus(h, 1));
+  if (!ziel || iso(ziel) === iso(TAG)) return false;
+  TAG = ziel;
+  GEWAEHLT = null;
+  return true;
 }
 
 function tagDaten(d) {
@@ -155,14 +218,17 @@ function hatTag(d) { return !!tagDaten(d); }
 const $ = s => document.querySelector(s);
 
 function zeichne(richtung) {
-  const istHeute = abstand(TAG) === 0;
+  const n = abstand(TAG);
+  const istHeute  = n === 0;
+  const istMorgen = n === 1;
 
   $('#wochentag').textContent = tagesLabel(TAG);
   $('#datumText').textContent = langesDatum(TAG);
 
   const kopf = $('#kopf');
-  kopf.classList.toggle('ist-heute', istHeute);
-  kopf.classList.toggle('nicht-heute', !istHeute);
+  kopf.classList.toggle('ist-heute',  istHeute);
+  kopf.classList.toggle('ist-morgen', istMorgen);
+  kopf.classList.toggle('nicht-heute', !istHeute && !istMorgen);
 
   const knopf = $('#zuHeute');
   knopf.hidden = istHeute;
@@ -653,11 +719,21 @@ function zeigeFehler(err) {
 // ------------------------------------------------------------------ Start --
 
 DATEN = S.cacheLesen();
+if (DATEN) { STARTTAG_GESETZT = true; starttagWaehlen(); }
 zeichne();
 if (S.url() && S.token()) laden(heute()).catch(zeigeFehler);
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && S.url() && S.token()) laden(TAG).catch(zeigeFehler);
+  if (document.hidden) { VERSTECKT_SEIT = Date.now(); return; }
+  if (!S.url() || !S.token()) return;
+
+  // War die App länger weg, gilt die Startregel neu — aber nur, wenn gerade
+  // heute zu sehen ist. Sonst würde sie einem beim Blättern die Seite wegziehen.
+  const langeWeg = VERSTECKT_SEIT && (Date.now() - VERSTECKT_SEIT) > 30 * 60000;
+  VERSTECKT_SEIT = null;
+  if (langeWeg && abstand(TAG) === 0 && starttagWaehlen()) zeichne(1);
+
+  laden(TAG).catch(zeigeFehler);
 });
 
 if ('serviceWorker' in navigator) {

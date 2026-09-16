@@ -516,14 +516,24 @@ code {
 }
 .kopf.nicht-heute .datum-tag { color: var(--text-leise); font-weight: 600; }
 
-/* Heute: die Kennzeichnung, die man ohne Lesen erkennt. */
-.kopf.ist-heute .datum-wochentag {
+/* Heute: gefüllte Pille — die Kennzeichnung, die man ohne Lesen erkennt. */
+.kopf.ist-heute .datum-wochentag,
+.kopf.ist-morgen .datum-wochentag {
   padding: 2.5px 11px 3px;
   border-radius: 999px;
-  background: var(--akzent);
-  color: var(--grund);
   font-weight: 700;
   letter-spacing: .08em;
+}
+.kopf.ist-heute .datum-wochentag {
+  background: var(--akzent);
+  color: var(--grund);
+}
+
+/* Morgen: dieselbe Form, aber nur umrandet — verwechselbar ist das nicht. */
+.kopf.ist-morgen .datum-wochentag {
+  background: none;
+  color: var(--akzent);
+  box-shadow: inset 0 0 0 1.5px var(--akzent);
 }
 
 /* --------------------------------------------------- Zurück-zu-heute-Knopf - */
