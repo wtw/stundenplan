@@ -33,7 +33,7 @@ const S = {
 
 let DATEN  = null;      // Antwort des Backends
 let TAG    = heute();   // angezeigter Tag
-let OFFEN  = {};        // welche Karten aufgeklappt sind
+let GEWAEHLT = null;    // Kind, dessen Stunden gerade angezeigt werden
 let LAEUFT = false;
 
 // -------------------------------------------------------------- Datumshilfen --
@@ -60,6 +60,18 @@ function montagVon(d) {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const wd = (x.getDay() + 6) % 7;      // Mo = 0
   return plus(x, -wd);
+}
+
+/** 'HH:MM' -> Minuten seit Mitternacht */
+function mn(hhmm) {
+  const t = String(hhmm).split(':');
+  return Number(t[0]) * 60 + Number(t[1]);
+}
+
+function dauerText(vonM, bisM) {
+  const d = bisM - vonM;
+  const h = Math.floor(d / 60), m = d % 60;
+  return (h ? h + ' Std' : '') + (h && m ? ' ' : '') + (m ? m + ' Min' : '');
 }
 
 const WOCHENTAGE = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
@@ -124,15 +136,35 @@ function hatTag(d) { return !!tagDaten(d); }
 
 const $ = s => document.querySelector(s);
 
-function zeichne() {
+function zeichne(richtung) {
   $('#wochentag').textContent = WOCHENTAGE[TAG.getDay()];
   $('#datumText').textContent = langesDatum(TAG);
   zeichneHeute();
   zeichneWoche();
+  if (richtung) {
+    animiere($('#tagInhalt'), richtung);
+    animiere($('#datumKnopf'), richtung);
+  }
 }
 
+/** Kurzes Ein-Wischen, damit ein Tageswechsel sichtbar ist. */
+function animiere(el, richtung) {
+  if (!el) return;
+  const klasse = richtung > 0 ? 'rein-r' : 'rein-l';
+  el.classList.remove('rein-r', 'rein-l');
+  void el.offsetWidth;                    // Neustart der Animation erzwingen
+  el.classList.add(klasse);
+  el.addEventListener('animationend', function weg() {
+    el.classList.remove('rein-r', 'rein-l');
+    el.removeEventListener('animationend', weg);
+  });
+}
+
+const PX_STUNDE = 62;     // Pixel je Stunde in der Tafel
+const MIN_HOEHE  = 210;
+
 function zeichneHeute() {
-  const box = $('#karten');
+  const box = $('#tagInhalt');
 
   if (!S.url() || !S.token()) {
     box.innerHTML = meldung('Noch nicht eingerichtet',
@@ -149,16 +181,13 @@ function zeichneHeute() {
     return;
   }
 
-  box.innerHTML = (DATEN.kinder || []).map(k => karte(k, t.kinder[k.kuerzel])).join('');
+  box.innerHTML = tagAnsicht(t);
 
-  box.querySelectorAll('.karte-kopf').forEach(b => {
-    b.addEventListener('click', () => {
-      const karte = b.closest('.karte');
-      const kind = karte.dataset.kind;
-      OFFEN[kind] = !OFFEN[kind];
-      karte.classList.toggle('offen', OFFEN[kind]);
-      const s = karte.querySelector('.stunden');
-      if (s) s.hidden = !OFFEN[kind];
+  box.querySelectorAll('.spalte').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const k = b.dataset.kind;
+      GEWAEHLT = (GEWAEHLT === k) ? null : k;
+      zeichneHeute();
     });
   });
 
@@ -180,63 +209,163 @@ function zeichneHeute() {
     : '';
 }
 
+/** Tafel + Hinweiszeile + gegebenenfalls die Stundenliste. */
+function tagAnsicht(t) {
+  const kinder = DATEN.kinder || [];
+  const inSchule = kinder.filter(k => {
+    const x = t.kinder[k.kuerzel];
+    return x && x.schule;
+  });
+
+  // Niemand in der Schule: nur die Begründung zeigen
+  if (!inSchule.length) {
+    const x = t.kinder[kinder[0] && kinder[0].kuerzel] || {};
+    return meldung('Kein Unterricht', x.grund || '');
+  }
+
+  const von = Math.min.apply(null, inSchule.map(k => mn(t.kinder[k.kuerzel].bringen)));
+  const bis = Math.max.apply(null, inSchule.map(k => mn(t.kinder[k.kuerzel].abholen)));
+  const hoehe = Math.max(MIN_HOEHE, (bis - von) / 60 * PX_STUNDE);
+  const y = m => (m - von) / (bis - von) * hoehe;
+
+  // Fallen Bring- oder Abholzeit zusammen?
+  const gleichBringen = inSchule.length > 1 &&
+    inSchule.every(k => t.kinder[k.kuerzel].bringen === t.kinder[inSchule[0].kuerzel].bringen);
+  const gleichAbholen = inSchule.length > 1 &&
+    inSchule.every(k => t.kinder[k.kuerzel].abholen === t.kinder[inSchule[0].kuerzel].abholen);
+
+  // Stundenlinien und Beschriftung. Wo eine "beide"-Marke sitzt, trägt die
+  // schon die Uhrzeit — dort bleibt die Achse leer, sonst steht es doppelt.
+  let ticks = '', linien = '';
+  if (!gleichBringen) ticks += '<span class="tick" style="top:0">' + uhr(von) + '</span>';
+  for (let m = Math.ceil(von / 60) * 60; m < bis; m += 60) {
+    if (m - von < 26 || bis - m < 26) continue;       // zu nah am Rand
+    ticks  += '<span class="tick" style="top:' + y(m) + 'px">' + uhr(m) + '</span>';
+    linien += '<div class="linie" style="top:' + y(m) + 'px"></div>';
+  }
+  if (!gleichAbholen) {
+    ticks += '<span class="tick" style="top:' + hoehe + 'px">' + uhr(bis) + '</span>';
+  }
+
+  // Säulen
+  const spalten = kinder.map(k => saeule(k, t.kinder[k.kuerzel], von, bis, hoehe, y)).join('');
+
+  let marken = '';
+  if (gleichBringen) {
+    marken += '<div class="gleich" style="top:' + y(von) + 'px">' +
+              '<span>' + uhr(von) + ' beide</span></div>';
+  }
+  if (gleichAbholen) {
+    marken += '<div class="gleich" style="top:' + y(bis) + 'px">' +
+              '<span>' + uhr(bis) + ' beide</span></div>';
+  }
+
+  const tafel =
+    '<div class="tafel">' +
+      '<div class="tafel-gitter" style="height:' + hoehe + 'px">' +
+        '<div class="achse">' + ticks + '</div>' +
+        '<div class="spalten" style="grid-template-columns:repeat(' + kinder.length + ',1fr)">' +
+          '<div class="linien">' + linien + '</div>' +
+          spalten + marken +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  return tafel + zusammenZeile(t, inSchule, gleichBringen, gleichAbholen) +
+         detailBlock(t) +
+         (GEWAEHLT ? '' : '<p class="tipp">Tipp auf eine Säule für alle Stunden</p>');
+}
+
+function uhr(m) {
+  const h = Math.floor(m / 60), r = m % 60;
+  return ('0' + h).slice(-2) + ':' + ('0' + r).slice(-2);
+}
+
+function saeule(kind, tag, von, bis, hoehe, y) {
+  const k = kind.kuerzel;
+  const gewaehlt = GEWAEHLT === k;
+
+  if (!tag || !tag.schule) {
+    return '<button class="spalte" type="button" data-kind="' + k + '" ' +
+             'aria-pressed="false" disabled>' +
+             '<div class="saeule frei" style="top:0;height:' + hoehe + 'px">' +
+               '<div class="mitte">' +
+                 '<span class="wer">' + esc(k) + '</span>' +
+                 '<span class="grund">' + esc((tag && tag.grund) || 'kein Unterricht') + '</span>' +
+               '</div>' +
+             '</div>' +
+           '</button>';
+  }
+
+  const a = mn(tag.bringen), b = mn(tag.abholen);
+  const top = y(a);
+  const h   = Math.max(46, y(b) - y(a));
+  const kompakt = h < 100 ? ' kompakt' : '';
+
+  const anmerkung = tag.quelle
+    ? '<span class="anmerkung">' +
+      (tag.notiz ? esc(tag.notiz) : (tag.quelle === 'kalender' ? 'aus dem Kalender' : 'Ausnahme')) +
+      '</span>'
+    : '';
+
+  return '<button class="spalte" type="button" data-kind="' + k + '" ' +
+           'aria-pressed="' + (gewaehlt ? 'true' : 'false') + '">' +
+           '<div class="saeule' + kompakt + '" style="top:' + top + 'px;height:' + h + 'px">' +
+             '<span class="zeit-o">' + esc(tag.bringen) + '</span>' +
+             '<span class="mitte">' +
+               '<span class="wer">' + esc(k) + '</span>' +
+               '<span class="wo">' + esc(kind.klasse) + '</span>' +
+               '<span class="dauer">' + dauerText(a, b) + '</span>' +
+               anmerkung +
+             '</span>' +
+             '<span class="zeit-u">' + esc(tag.abholen) + '</span>' +
+           '</div>' +
+         '</button>';
+}
+
+/** Die eine Zeile, die man morgens wirklich liest. */
+function zusammenZeile(t, inSchule, gleichBringen, gleichAbholen) {
+  if (inSchule.length < 2) return '';
+  const erst = t.kinder[inSchule[0].kuerzel];
+
+  const teile = [];
+  if (gleichBringen) {
+    teile.push('zusammen bringen um <b>' + esc(erst.bringen) + '</b>');
+  }
+  if (gleichAbholen) {
+    teile.push('zusammen abholen um <b>' + esc(erst.abholen) + '</b>');
+  }
+  // Fallen keine Zeiten zusammen, sagen die Säulen alles Nötige.
+  if (!teile.length) return '';
+  return '<p class="zusammen">Heute ' + teile.join(' und ') + '.</p>';
+}
+
+function detailBlock(t) {
+  if (!GEWAEHLT) return '';
+  const tag = t.kinder[GEWAEHLT];
+  if (!tag || !tag.stunden || !tag.stunden.length) return '';
+  const kind = (DATEN.kinder || []).find(k => k.kuerzel === GEWAEHLT) || {};
+  const gibtBetreuung = tag.stunden.some(s => s.fach && !s.unterricht);
+
+  return '<div class="detail">' +
+    '<div class="detail-kopf">' +
+      '<span class="detail-punkt ' + GEWAEHLT.toLowerCase() + '"></span>' +
+      esc(GEWAEHLT) + ' · ' + esc(kind.klasse || '') + ' · alle Stunden' +
+    '</div>' +
+    '<div class="karte"><div class="stunden">' +
+      tag.stunden.map(zeile).join('') +
+      (gibtBetreuung
+        ? '<p class="fussnote">Ausgegraut: Ganztagsangebot, ohne euer Kind.</p>'
+        : '') +
+    '</div></div>' +
+  '</div>';
+}
+
 function meldung(titel, text) {
   return '<div class="karte"><div class="karte-kopf">' +
          '<div class="frei-text">' + esc(titel) +
          (text ? '<span class="frei-grund">' + esc(text) + '</span>' : '') +
          '</div></div></div>';
-}
-
-function karte(kind, tag) {
-  const k = kind.kuerzel;
-  const offen = !!OFFEN[k];
-  let kopf;
-
-  if (tag && tag.schule) {
-    kopf =
-      '<div class="zeitenblock">' +
-        feld('Bringen', tag.bringen) +
-        feld('Abholen', tag.abholen) +
-      '</div>';
-  } else {
-    const grund = tag ? (tag.grund || 'Kein Unterricht') : 'Keine Daten';
-    kopf = '<div class="frei-text">Kein Unterricht' +
-           '<span class="frei-grund">' + esc(grund) + '</span></div>';
-  }
-
-  const merker = tag && tag.quelle
-    ? '<span class="merker">' +
-      (tag.quelle === 'kalender' ? 'aus dem Kalender' : 'Ausnahme') +
-      (tag.notiz ? ': ' + esc(tag.notiz) : '') + '</span>'
-    : '';
-
-  let stunden = '';
-  if (tag && tag.stunden && tag.stunden.length) {
-    const gibtBetreuung = tag.stunden.some(s => s.fach && !s.unterricht);
-    stunden = '<div class="stunden"' + (offen ? '' : ' hidden') + '>' +
-      tag.stunden.map(zeile).join('') +
-      (gibtBetreuung
-        ? '<p class="fussnote">Ausgegraut: Ganztagsangebot, ohne euer Kind.</p>'
-        : '') +
-      '</div>';
-  }
-
-  return '<div class="karte' + (offen ? ' offen' : '') + '" data-kind="' + k + '">' +
-    '<button class="karte-kopf" type="button">' +
-      '<div class="kind-spalte">' +
-        '<div class="abzeichen">' + esc(k) + '</div>' +
-        '<div class="klasse">' + esc(kind.klasse) + '</div>' +
-      '</div>' +
-      kopf +
-      (stunden ? '<span class="pfeilchen">›</span>' : '') +
-    '</button>' +
-    (merker ? '<div style="padding:0 16px 14px">' + merker + '</div>' : '') +
-    stunden +
-  '</div>';
-}
-
-function feld(label, wert) {
-  return '<dl class="zeitfeld"><dt>' + label + '</dt><dd>' + esc(wert) + '</dd></dl>';
 }
 
 function zeile(s) {
@@ -305,24 +434,35 @@ document.querySelectorAll('.leiste button').forEach(b => {
 
 $('#zurueck').addEventListener('click', () => springe(-1));
 $('#vor').addEventListener('click',     () => springe(1));
-$('#datumKnopf').addEventListener('click', () => { TAG = heute(); zeichne(); });
+$('#datumKnopf').addEventListener('click', () => {
+  const richtung = TAG < heute() ? 1 : (TAG > heute() ? -1 : 0);
+  TAG = heute();
+  GEWAEHLT = null;
+  zeichne(richtung);
+});
 
 function springe(n) {
   TAG = plus(TAG, n);
-  zeichne();
+  GEWAEHLT = null;
+  zeichne(n);
   if (!hatTag(TAG)) laden(TAG).catch(zeigeFehler);
 }
 
-// Wischen
-let startX = null;
-document.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+// Wischen — nur auf der Heute-Seite, und nur waagerecht
+let startX = null, startY = null;
+document.addEventListener('touchstart', e => {
+  startX = e.touches[0].clientX;
+  startY = e.touches[0].clientY;
+}, { passive: true });
+
 document.addEventListener('touchend', e => {
-  if (startX === null || !$('#seiteHeute').hidden === false) { /* nur Heute */ }
-  if (startX === null) return;
+  if (startX === null || $('#seiteHeute').hidden) { startX = null; return; }
   const dx = e.changedTouches[0].clientX - startX;
+  const dy = e.changedTouches[0].clientY - startY;
   startX = null;
-  if ($('#seiteHeute').hidden) return;
-  if (Math.abs(dx) > 70) springe(dx < 0 ? 1 : -1);
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+    springe(dx < 0 ? 1 : -1);
+  }
 }, { passive: true });
 
 // --------------------------------------------------------------- Ausnahme --

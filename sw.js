@@ -1,7 +1,7 @@
 /* Service Worker — hält die App offline lauffähig.
    Bei jeder Änderung an den Dateien die VERSION hochzählen. */
 
-const VERSION = 'schule-v1';
+const VERSION = 'schule-v2';
 const SCHALE = [
   './',
   './index.html',
