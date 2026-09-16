@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181c" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Schule">
+<title>Schule</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="kopf">
+  <button class="pfeil" id="zurueck" aria-label="Vorheriger Tag">‹</button>
+  <button class="datum" id="datumKnopf">
+    <span class="datum-wochentag" id="wochentag">—</span>
+    <span class="datum-tag" id="datumText">—</span>
+  </button>
+  <button class="pfeil" id="vor" aria-label="Nächster Tag">›</button>
+</header>
+
+<main>
+
+  <!-- ------------------------------------------------------------ Heute -->
+  <section class="seite" id="seiteHeute">
+    <div id="karten"></div>
+    <p class="hinweis" id="hinweisUnklar" hidden></p>
+    <p class="stand" id="stand"></p>
+  </section>
+
+  <!-- ------------------------------------------------------------ Woche -->
+  <section class="seite" id="seiteWoche" hidden>
+    <div class="scrollbox"><table class="woche" id="wocheTabelle"></table></div>
+  </section>
+
+  <!-- --------------------------------------------------------- Ausnahme -->
+  <section class="seite" id="seiteAusnahme" hidden>
+    <h2>Ausnahme eintragen</h2>
+    <form id="ausnahmeForm" class="formular">
+      <label>Datum
+        <input type="date" id="axDatum" required>
+      </label>
+
+      <fieldset>
+        <legend>Kind</legend>
+        <div class="chips" id="axKinder"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Was ist anders?</legend>
+        <div class="chips" id="axTyp">
+          <label class="chip"><input type="radio" name="typ" value="frei" checked><span>Kein Unterricht</span></label>
+          <label class="chip"><input type="radio" name="typ" value="ab"><span>Beginnt später</span></label>
+          <label class="chip"><input type="radio" name="typ" value="bis"><span>Endet früher</span></label>
+          <label class="chip"><input type="radio" name="typ" value="zeit"><span>Eigene Zeiten</span></label>
+        </div>
+      </fieldset>
+
+      <div class="zeiten">
+        <label id="labelVon" hidden>Von
+          <input type="time" id="axVon" step="300">
+        </label>
+        <label id="labelBis" hidden>Bis
+          <input type="time" id="axBis" step="300">
+        </label>
+      </div>
+
+      <label>Notiz <span class="opt">optional</span>
+        <input type="text" id="axNotiz" placeholder="z.B. Ausflug, Zahnarzt">
+      </label>
+
+      <button type="submit" class="knopf primaer" id="axSpeichern">Speichern</button>
+      <button type="button" class="knopf" id="axLoeschen">Ausnahme für diesen Tag entfernen</button>
+      <p class="status" id="axStatus"></p>
+    </form>
+
+    <h3>Von Hand im Kalender</h3>
+    <p class="fliess">Statt der App kannst du auch direkt in „Schule J“ oder
+      „Schule P“ einen Termin anlegen. Erkannt werden:</p>
+    <ul class="notation">
+      <li><code>J: frei</code></li>
+      <li><code>P: krank</code></li>
+      <li><code>alle: frei</code> — für beide Kinder</li>
+      <li><code>J: ab 9:40</code></li>
+      <li><code>J: bis 11:30</code></li>
+      <li><code>P: 8:00-15:00 Ausflug</code></li>
+    </ul>
+  </section>
+
+  <!-- ---------------------------------------------------- Einstellungen -->
+  <section class="seite" id="seiteSetup" hidden>
+    <h2>Einstellungen</h2>
+    <form id="setupForm" class="formular">
+      <label>Apps-Script-URL
+        <input type="url" id="cfgUrl" placeholder="https://script.google.com/macros/s/…/exec" required>
+      </label>
+      <label>Token
+        <input type="text" id="cfgToken" placeholder="aus tokenErzeugen()" required autocomplete="off">
+      </label>
+      <button type="submit" class="knopf primaer">Speichern und laden</button>
+      <button type="button" class="knopf" id="cfgSync">Kalender komplett neu abgleichen</button>
+      <p class="status" id="cfgStatus"></p>
+    </form>
+  </section>
+
+</main>
+
+<nav class="leiste">
+  <button data-seite="Heute"    class="aktiv"><span>Heute</span></button>
+  <button data-seite="Woche"><span>Woche</span></button>
+  <button data-seite="Ausnahme"><span>Ausnahme</span></button>
+  <button data-seite="Setup"><span>Einstellungen</span></button>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+/* Schule — PWA für den Home-Screen */
+
+:root {
+  color-scheme: light dark;
+
+  --grund:      #f7f6f3;
+  --flaeche:    #ffffff;
+  --rand:       #e4e1da;
+  --text:       #1c1d1f;
+  --text-leise: #71706c;
+  --akzent:     #2f6d5c;
+
+  --j-ton:      #b45309;
+  --j-hell:     #fdf3e4;
+  --p-ton:      #1d5f86;
+  --p-hell:     #e8f2f8;
+
+  --radius:     16px;
+  --oben:       env(safe-area-inset-top, 0px);
+  --unten:      env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund:      #16181c;
+    --flaeche:    #212429;
+    --rand:       #33373e;
+    --text:       #eceef1;
+    --text-leise: #969ba4;
+    --akzent:     #6cc0a6;
+
+    --j-ton:      #f0a355;
+    --j-hell:     #3a2c1b;
+    --p-ton:      #74bce8;
+    --p-hell:     #1b2c38;
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* Muss stehen bleiben: .formular label setzt display:flex und würde
+   sonst das hidden-Attribut aushebeln. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--grund);
+  color: var(--text);
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: calc(64px + var(--unten));
+}
+
+/* ------------------------------------------------------------------ Kopf -- */
+
+.kopf {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: calc(var(--oben) + 10px) 12px 10px;
+  background: color-mix(in srgb, var(--grund) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--rand);
+}
+
+.pfeil {
+  flex: 0 0 44px;
+  height: 44px;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--text-leise);
+  background: none;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.pfeil:active { background: var(--rand); }
+
+.datum {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.datum-wochentag { font-size: 13px; color: var(--text-leise); letter-spacing: .04em; text-transform: uppercase; }
+.datum-tag       { font-size: 18px; font-weight: 640; }
+
+/* ----------------------------------------------------------------- Seiten - */
+
+main { padding: 16px; max-width: 620px; margin: 0 auto; }
+
+h2 { font-size: 19px; margin: 4px 0 18px; }
+h3 { font-size: 15px; margin: 30px 0 8px; color: var(--text-leise); }
+
+.fliess { color: var(--text-leise); font-size: 14px; margin: 0 0 10px; }
+
+/* ----------------------------------------------------------------- Karten - */
+
+.karte {
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.karte-kopf {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.abzeichen {
+  flex: 0 0 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  font-size: 21px;
+  font-weight: 700;
+}
+.karte[data-kind="J"] .abzeichen { background: var(--j-hell); color: var(--j-ton); }
+.karte[data-kind="P"] .abzeichen { background: var(--p-hell); color: var(--p-ton); }
+
+.klasse { font-size: 12px; color: var(--text-leise); margin-top: 1px; }
+
+.zeitenblock { flex: 1; display: flex; gap: 22px; }
+.zeitfeld    { min-width: 0; }
+.zeitfeld dt { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--text-leise); }
+.zeitfeld dd { margin: 1px 0 0; font-size: 26px; font-weight: 660; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+
+.frei-text { flex: 1; font-size: 17px; font-weight: 560; }
+.frei-grund { display: block; font-size: 13px; font-weight: 400; color: var(--text-leise); margin-top: 2px; }
+
+.pfeilchen { flex: 0 0 auto; color: var(--text-leise); font-size: 15px; transition: transform .18s; }
+.karte.offen .pfeilchen { transform: rotate(90deg); }
+
+.merker {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  background: var(--j-hell);
+  color: var(--j-ton);
+}
+.karte[data-kind="P"] .merker { background: var(--p-hell); color: var(--p-ton); }
+
+/* -------------------------------------------------------------- Stunden -- */
+
+.stunden { border-top: 1px solid var(--rand); padding: 6px 16px 12px; }
+
+.stunde {
+  display: grid;
+  grid-template-columns: 22px 104px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 7px 0;
+  font-size: 15px;
+}
+.stunde + .stunde { border-top: 1px solid color-mix(in srgb, var(--rand) 55%, transparent); }
+.stunde .nr   { color: var(--text-leise); font-size: 12px; }
+.stunde .zeit { color: var(--text-leise); font-size: 13px; font-variant-numeric: tabular-nums; }
+.stunde.betreuung  { opacity: .45; }
+.stunde.entfaellt .fach { text-decoration: line-through; opacity: .5; }
+.stunde .fach small { color: var(--text-leise); font-size: 11.5px; }
+
+/* --------------------------------------------------------------- Woche --- */
+
+.scrollbox { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+.woche {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.woche th, .woche td { padding: 11px 12px; text-align: left; border-bottom: 1px solid var(--rand); white-space: nowrap; }
+.woche th { font-size: 11.5px; letter-spacing: .04em; color: var(--text-leise); font-weight: 600; }
+.woche tr:last-child td { border-bottom: 0; }
+.woche td.tag { font-weight: 600; }
+.woche td.j { color: var(--j-ton); font-variant-numeric: tabular-nums; }
+.woche td.p { color: var(--p-ton); font-variant-numeric: tabular-nums; }
+.woche tr.heute { background: color-mix(in srgb, var(--akzent) 9%, transparent); }
+.woche td .leer { color: var(--text-leise); }
+
+/* ------------------------------------------------------------ Formulare -- */
+
+.formular { display: flex; flex-direction: column; gap: 16px; }
+
+.formular label { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--text-leise); }
+.formular .opt { color: var(--text-leise); opacity: .7; }
+
+input[type="date"], input[type="time"], input[type="text"], input[type="url"] {
+  width: 100%;
+  padding: 12px 13px;
+  font: inherit;
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: 12px;
+}
+input:focus { outline: 2px solid var(--akzent); outline-offset: 1px; }
+
+fieldset { border: 0; padding: 0; margin: 0; }
+legend { font-size: 13.5px; color: var(--text-leise); padding: 0 0 8px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { position: relative; }
+.chip input { position: absolute; opacity: 0; pointer-events: none; }
+.chip span {
+  display: block;
+  padding: 9px 15px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.chip input:checked + span {
+  background: var(--akzent);
+  border-color: var(--akzent);
+  color: var(--grund);
+  font-weight: 560;
+}
+
+.zeiten { display: flex; gap: 12px; }
+.zeiten label { flex: 1; }
+
+.knopf {
+  padding: 13px 16px;
+  font: inherit;
+  font-weight: 560;
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.knopf.primaer { background: var(--akzent); border-color: var(--akzent); color: var(--grund); }
+.knopf:active  { transform: translateY(1px); }
+.knopf:disabled { opacity: .5; }
+
+.status { font-size: 13.5px; color: var(--text-leise); min-height: 1.2em; margin: 0; }
+.status.fehler { color: #c2410c; }
+.status.gut    { color: var(--akzent); }
+
+.notation { padding-left: 18px; margin: 0; color: var(--text-leise); font-size: 14px; }
+.notation li { margin-bottom: 5px; }
+code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.hinweis {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--j-hell);
+  color: var(--j-ton);
+  font-size: 13.5px;
+  margin: 4px 0 0;
+}
+.stand { font-size: 12px; color: var(--text-leise); text-align: center; margin: 22px 0 0; }
+
+/* --------------------------------------------------------------- Leiste -- */
+
+.leiste {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 20;
+  display: flex;
+  padding-bottom: var(--unten);
+  background: color-mix(in srgb, var(--grund) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--rand);
+}
+.leiste button {
+  flex: 1;
+  padding: 13px 4px 14px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-leise);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.leiste button.aktiv { color: var(--akzent); font-weight: 620; }
+
+.kind-spalte { flex: 0 0 46px; text-align: center; }
+.kind-spalte .klasse { margin-top: 3px; }
+
+.fussnote {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  color: var(--text-leise);
+}
