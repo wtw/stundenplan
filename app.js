@@ -118,10 +118,22 @@ async function hole(von, tage) {
   u.searchParams.set('token', S.token());
   u.searchParams.set('von', iso(von));
   u.searchParams.set('tage', String(tage));
-  const r = await fetch(u.toString(), { redirect: 'follow' });
-  const j = await r.json();
-  if (!j.ok) throw new Error(j.fehler || 'Unbekannter Fehler');
-  return j.daten;
+  // no-store, weil die URL für einen Tag byte-gleich bleibt und Safari sonst
+  // aus dem HTTP-Cache antwortet. Der Wecker fängt Abrufe ab, die beim
+  // Aufwachen des Geräts hängen bleiben — sonst stünden die alten Zeiten
+  // beliebig lange ohne Fehlermeldung da.
+  const abbruch = new AbortController();
+  const wecker = setTimeout(() => abbruch.abort(), 20000);
+  try {
+    const r = await fetch(u.toString(), {
+      redirect: 'follow', cache: 'no-store', signal: abbruch.signal
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.fehler || 'Unbekannter Fehler');
+    return j.daten;
+  } finally {
+    clearTimeout(wecker);
+  }
 }
 
 async function schicke(body) {
@@ -723,9 +735,15 @@ if (DATEN) { STARTTAG_GESETZT = true; starttagWaehlen(); }
 zeichne();
 if (S.url() && S.token()) laden(heute()).catch(zeigeFehler);
 
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { VERSTECKT_SEIT = Date.now(); return; }
+/**
+ * Was beim Zurückholen der App passiert. iOS meldet das je nach Zustand
+ * unterschiedlich: mal über visibilitychange, mal nur über pageshow, wenn die
+ * Seite aus dem bfcache kommt. Deshalb hängen beide hier dran. Kommen sie
+ * zusammen, verhindert LAEUFT den doppelten Abruf.
+ */
+function beiRueckkehr() {
   if (!S.url() || !S.token()) return;
+  if (LAEUFT) return;
 
   // War die App länger weg, gilt die Startregel neu — aber nur, wenn gerade
   // heute zu sehen ist. Sonst würde sie einem beim Blättern die Seite wegziehen.
@@ -734,7 +752,16 @@ document.addEventListener('visibilitychange', () => {
   if (langeWeg && abstand(TAG) === 0 && starttagWaehlen()) zeichne(1);
 
   laden(TAG).catch(zeigeFehler);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { VERSTECKT_SEIT = Date.now(); return; }
+  beiRueckkehr();
 });
+
+// persisted: nur die wiederhergestellte Seite, nicht der normale Erststart —
+// der lädt schon weiter oben.
+window.addEventListener('pageshow', e => { if (e.persisted) beiRueckkehr(); });
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () =>
