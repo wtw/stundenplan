@@ -37,6 +37,9 @@ let GEWAEHLT = null;    // Kind, dessen Stunden gerade angezeigt werden
 let LAEUFT = false;
 let STARTTAG_GESETZT = false;
 let VERSTECKT_SEIT = null;
+let OFFLINE = false;    // letzter Abruf gescheitert, gezeigt werden Cache-Daten
+let AUTO_TAG = null;    // Tag, den starttagWaehlen zuletzt gesetzt hat
+let STARTANSICHT = false; // beim Verstecken war heute bzw. AUTO_TAG zu sehen
 
 /**
  * So lange nach dem letzten Abholen bleibt der heutige Tag stehen. Danach
@@ -157,6 +160,13 @@ async function laden(zielDatum) {
     zeichne();
     DATEN = await hole(von, 35);
     S.cacheSchreiben(DATEN);
+    OFFLINE = false;
+  } catch (err) {
+    // Neu zeichnen, sonst bliebe "Lädt …" stehen und der Offline-Hinweis fehlte.
+    OFFLINE = true;
+    LAEUFT = false;
+    zeichne();
+    throw err;
   } finally {
     LAEUFT = false;
   }
@@ -213,6 +223,7 @@ function starttagWaehlen() {
   const ziel = naechsterSchultag(plus(h, 1));
   if (!ziel || iso(ziel) === iso(TAG)) return false;
   TAG = ziel;
+  AUTO_TAG = ziel;
   GEWAEHLT = null;
   return true;
 }
@@ -283,6 +294,8 @@ function zeichneHeute() {
     return;
   }
 
+  zeichneStand();
+
   const t = tagDaten(TAG);
   if (!t) {
     box.innerHTML = meldung(
@@ -311,12 +324,17 @@ function zeichneHeute() {
   } else {
     h.hidden = true;
   }
+}
 
+/** Datenstand unter der Tafel – mit Warnung, solange der letzte Abruf scheiterte. */
+function zeichneStand() {
   const a = S.cacheAlter();
-  $('#stand').textContent = a
+  const stand = a
     ? 'Stand: ' + a.toLocaleString('de-DE', { day: '2-digit', month: '2-digit',
         hour: '2-digit', minute: '2-digit' })
     : '';
+  if (!OFFLINE) { $('#stand').textContent = stand; return; }
+  $('#stand').textContent = stand ? 'Offline – ' + stand : 'Keine Verbindung.';
 }
 
 /** Tafel + Hinweiszeile + gegebenenfalls die Stundenliste. */
@@ -728,10 +746,7 @@ $('#cfgSync').addEventListener('click', async () => {
 
 function zeigeFehler(err) {
   console.warn(err);
-  const a = S.cacheAlter();
-  $('#stand').textContent = a
-    ? 'Offline — Stand: ' + a.toLocaleString('de-DE')
-    : 'Keine Verbindung.';
+  zeichneStand();
 }
 
 // ------------------------------------------------------------------ Start --
@@ -751,17 +766,29 @@ function beiRueckkehr() {
   if (!S.url() || !S.token()) return;
   if (LAEUFT) return;
 
-  // War die App länger weg, gilt die Startregel neu — aber nur, wenn gerade
-  // heute zu sehen ist. Sonst würde sie einem beim Blättern die Seite wegziehen.
+  // War die App länger weg, gilt die Startregel neu – aber nur, wenn beim
+  // Verstecken heute oder der automatisch gewählte Tag zu sehen war. Sonst
+  // würde sie einem beim Blättern die Seite wegziehen. Über Nacht ist "heute"
+  // von damals inzwischen gestern, deshalb erst auf das neue Heute setzen.
   const langeWeg = VERSTECKT_SEIT && (Date.now() - VERSTECKT_SEIT) > 30 * 60000;
   VERSTECKT_SEIT = null;
-  if (langeWeg && abstand(TAG) === 0 && starttagWaehlen()) zeichne(1);
+  if (langeWeg && STARTANSICHT) {
+    const vorher = iso(TAG);
+    TAG = heute();
+    GEWAEHLT = null;
+    starttagWaehlen();
+    if (iso(TAG) !== vorher) zeichne(1);
+  }
 
   laden(TAG).catch(zeigeFehler);
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { VERSTECKT_SEIT = Date.now(); return; }
+  if (document.hidden) {
+    VERSTECKT_SEIT = Date.now();
+    STARTANSICHT = abstand(TAG) === 0 || (AUTO_TAG && iso(TAG) === iso(AUTO_TAG));
+    return;
+  }
   beiRueckkehr();
 });
 
