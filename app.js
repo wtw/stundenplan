@@ -700,6 +700,18 @@ document.addEventListener('touchend', e => {
   }
 }, { passive: true });
 
+// Pfeiltasten – ebenfalls nur auf der Heute-Seite und nicht beim Tippen in
+// Feldern. Links/rechts blättern, runter springt zurück zu heute.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowDown') return;
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if ($('#seiteHeute').hidden) return;
+  if (e.target.closest('input, select, textarea, [contenteditable]')) return;
+  e.preventDefault();
+  if (e.key === 'ArrowDown') zurueckZuHeute();
+  else springe(e.key === 'ArrowRight' ? 1 : -1);
+});
+
 // --------------------------------------------------------------- Ausnahme --
 
 function ausnahmeVorbereiten() {

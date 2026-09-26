@@ -415,13 +415,15 @@ code {
 .spalte .zeit-u { align-items: flex-start; padding-top: 5px; }
 .spalte[data-kind="J"] .zeit-o, .spalte[data-kind="J"] .zeit-u { color: var(--j-ton); }
 .spalte[data-kind="P"] .zeit-o, .spalte[data-kind="P"] .zeit-u { color: var(--p-ton); }
-/* Gleiche Zeit für beide: einmal, mittig über bzw. unter den Säulen. */
+/* Gleiche Zeit für beide: einmal, mittig auf einer dünnen Linie, die unter
+   bzw. über beiden Säulen durchläuft. */
 .spalten .zeit-gemeinsam {
   position: absolute;
   left: 0; right: 0;
   height: 30px;
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: 10px;
   color: var(--akzent);
   font-size: 19px;
   font-weight: 660;
@@ -429,8 +431,17 @@ code {
   letter-spacing: -.02em;
   line-height: 1.1;
 }
-.spalten .zeit-o.zeit-gemeinsam { align-items: flex-end; padding-bottom: 5px; }
-.spalten .zeit-u.zeit-gemeinsam { align-items: flex-start; padding-top: 5px; }
+.spalten .zeit-o.zeit-gemeinsam { padding-bottom: 4px; }
+.spalten .zeit-u.zeit-gemeinsam { padding-top: 4px; }
+.spalten .zeit-gemeinsam::before,
+.spalten .zeit-gemeinsam::after {
+  content: '';
+  flex: 1;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: .45;
+}
 
 .saeule .ecke {
   position: absolute;
