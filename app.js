@@ -454,16 +454,22 @@ function zusammenZeile(t, inSchule, gleichBringen, gleichAbholen) {
   if (inSchule.length < 2) return '';
   const erst = t.kinder[inSchule[0].kuerzel];
 
+  // Vergangene Tage im Partizip: "Gestern zusammen gebracht um …".
+  const n = abstand(TAG);
+  const vorbei = n < 0;
+
   const teile = [];
   if (gleichBringen) {
-    teile.push('zusammen bringen um <b>' + esc(erst.bringen) + '</b>');
+    teile.push('zusammen ' + (vorbei ? 'gebracht' : 'bringen') + ' um <b>' + esc(erst.bringen) + '</b>');
   }
   if (gleichAbholen) {
-    teile.push('zusammen abholen um <b>' + esc(erst.abholen) + '</b>');
+    teile.push('zusammen ' + (vorbei ? 'abgeholt' : 'abholen') + ' um <b>' + esc(erst.abholen) + '</b>');
   }
   // Fallen keine Zeiten zusammen, sagen die Säulen alles Nötige.
   if (!teile.length) return '';
-  return '<p class="zusammen">Heute ' + teile.join(' und ') + '.</p>';
+  // Relativer Tag ("Heute", "Morgen" …) oder "Am Montag" für alles weiter weg.
+  const wann = Math.abs(n) <= 1 || n === 2 ? tagesLabel(TAG) : 'Am ' + tagesLabel(TAG);
+  return '<p class="zusammen">' + wann + ' ' + teile.join(' und ') + '.</p>';
 }
 
 function detailBlock(t) {
