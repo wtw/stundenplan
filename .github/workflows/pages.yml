@@ -1,0 +1,43 @@
+# Veröffentlicht die App bei jedem Push auf main über GitHub Pages und setzt
+# dabei die Version ein. So bekommen die Handys nach jedem Push einen neuen
+# Service-Worker-Cache, ohne dass jemand von Hand hochzählen muss.
+# Voraussetzung: Settings → Pages → Source: "GitHub Actions".
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Seite zusammenstellen und Version einsetzen
+        run: |
+          mkdir _site
+          cp -R .nojekyll index.html app.css app.js sw.js version.js manifest.webmanifest icons _site/
+          sed -i "s/schule-dev/schule-v${{ github.run_number }}/" _site/version.js
+          grep -q "schule-v${{ github.run_number }}" _site/version.js
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
