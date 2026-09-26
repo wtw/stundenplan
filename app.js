@@ -866,6 +866,8 @@ function beiRueckkehr() {
     if (iso(TAG) !== vorher) zeichne(1);
   }
 
+  if (UPDATE_WARTET) { location.reload(); return; }
+  pruefeUpdate();
   laden(TAG).catch(zeigeFehler);
 }
 
@@ -882,7 +884,36 @@ document.addEventListener('visibilitychange', () => {
 // der lädt schon weiter oben.
 window.addEventListener('pageshow', e => { if (e.persisted) beiRueckkehr(); });
 
+// ------------------------------------------------------------ Updates --
+
+/*
+ * Neue Version: Nach einem Deploy installiert sich der neue Service Worker und
+ * übernimmt (skipWaiting + clients.claim). Dann lädt die Seite sich neu, damit
+ * auch der neue Code läuft – iOS hält eine Home-Bildschirm-App sonst tagelang
+ * mit dem alten Code im Speicher. Beim Tippen in einem Formular wird bis zur
+ * nächsten Rückkehr in die App gewartet, damit nichts verloren geht.
+ */
+let UPDATE_WARTET = false;
+let SW_REG = null;
+
+function pruefeUpdate() {
+  if (SW_REG) SW_REG.update().catch(() => {});
+}
+
 if ('serviceWorker' in navigator) {
+  let hatteController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // Erstinstallation: Die Seite ist schon aktuell.
+    if (!hatteController) { hatteController = true; return; }
+    const tippt = document.activeElement &&
+      document.activeElement.closest('input, select, textarea');
+    if (tippt || $('#seiteHeute').hidden) UPDATE_WARTET = true;
+    else location.reload();
+  });
+
+  // updateViaCache: none – sw.js und version.js nie aus dem Browser-Cache prüfen
   window.addEventListener('load', () =>
-    navigator.serviceWorker.register('sw.js').catch(() => {}));
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(reg => { SW_REG = reg; })
+      .catch(() => {}));
 }

@@ -36,6 +36,9 @@ jobs:
           cp -R index.html app.css app.js sw.js version.js manifest.webmanifest icons _site/
           sed -i "s/schule-dev/schule-v${{ github.run_number }}/" _site/version.js
           grep -q "schule-v${{ github.run_number }}" _site/version.js
+          # sw.js muss sich bei jedem Deploy ändern, sonst bemerkt nicht jeder
+          # Browser das Update.
+          echo "// schule-v${{ github.run_number }}" >> _site/sw.js
 
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

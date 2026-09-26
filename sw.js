@@ -1,5 +1,7 @@
 /* Service Worker — hält die App offline lauffähig.
-   Bei jeder Änderung an den Dateien die VERSION in version.js hochzählen. */
+   Die VERSION setzt der Pages-Workflow beim Veröffentlichen, in version.js und
+   als Kommentar am Ende dieser Datei. Letzteres, damit sich sw.js bei jedem
+   Deploy ändert – nicht jeder Browser prüft importierte Skripte auf Updates. */
 
 importScripts('version.js');
 const SCHALE = [
@@ -42,9 +44,13 @@ self.addEventListener('fetch', e => {
   }
   if (e.request.method !== 'GET') return;
 
-  // App-Schale: erst Netz, dann Cache (damit Updates ankommen)
+  // App-Schale: erst Netz, dann Cache (damit Updates ankommen). no-cache, weil
+  // GitHub Pages zehn Minuten Browser-Cache erlaubt – so fragt der Browser
+  // jedes Mal per ETag nach (meist nur ein kurzes 304). Navigationen lassen
+  // sich nicht mit Optionen weiterreichen, daher dort eine frische Anfrage.
+  const anfrage = e.request.mode === 'navigate' ? new Request(e.request.url) : e.request;
   e.respondWith(
-    fetch(e.request)
+    fetch(anfrage, { cache: 'no-cache' })
       .then(res => {
         const kopie = res.clone();
         caches.open(VERSION).then(c => c.put(e.request, kopie)).catch(() => {});
