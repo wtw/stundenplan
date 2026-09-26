@@ -751,6 +751,7 @@ function zeigeFehler(err) {
 
 // ------------------------------------------------------------------ Start --
 
+$('#version').textContent = 'Version ' + VERSION.replace(/^schule-/, '');
 DATEN = S.cacheLesen();
 if (DATEN) { STARTTAG_GESETZT = true; starttagWaehlen(); }
 zeichne();

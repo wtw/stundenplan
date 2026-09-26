@@ -1,12 +1,13 @@
 /* Service Worker — hält die App offline lauffähig.
-   Bei jeder Änderung an den Dateien die VERSION hochzählen. */
+   Bei jeder Änderung an den Dateien die VERSION in version.js hochzählen. */
 
-const VERSION = 'schule-v6';
+importScripts('version.js');
 const SCHALE = [
   './',
   './index.html',
   './app.css',
   './app.js',
+  './version.js',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',
