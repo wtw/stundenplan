@@ -399,34 +399,73 @@ code {
 .spalte[data-kind="J"][aria-pressed="true"] .saeule { box-shadow: inset 3px 0 0 var(--j-ton), 0 0 0 2px var(--j-ton); }
 .spalte[data-kind="P"][aria-pressed="true"] .saeule { box-shadow: inset 3px 0 0 var(--p-ton), 0 0 0 2px var(--p-ton); }
 
-.saeule .zeit-o,
-.saeule .zeit-u {
+.spalte .zeit-o,
+.spalte .zeit-u {
+  position: absolute;
+  left: 2px;
+  height: 30px;
+  display: flex;
   font-size: 19px;
   font-weight: 660;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.02em;
   line-height: 1.1;
 }
-.saeule .mitte {
-  flex: 1;
+.spalte .zeit-o { align-items: flex-end; padding-bottom: 5px; }
+.spalte .zeit-u { align-items: flex-start; padding-top: 5px; }
+.spalte[data-kind="J"] .zeit-o, .spalte[data-kind="J"] .zeit-u { color: var(--j-ton); }
+.spalte[data-kind="P"] .zeit-o, .spalte[data-kind="P"] .zeit-u { color: var(--p-ton); }
+/* Gleiche Zeit für beide: einmal, mittig über bzw. unter den Säulen. */
+.spalten .zeit-gemeinsam {
+  position: absolute;
+  left: 0; right: 0;
+  height: 30px;
   display: flex;
-  flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
-  min-height: 0;
+  color: var(--akzent);
+  font-size: 19px;
+  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+  line-height: 1.1;
 }
-.saeule .wer   { font-size: 22px; font-weight: 700; line-height: 1; }
-.saeule .wo    { font-size: 11.5px; opacity: .75; margin-top: 2px; }
-.saeule .dauer { font-size: 11.5px; opacity: .75; margin-top: 5px; }
+.spalten .zeit-o.zeit-gemeinsam { align-items: flex-end; padding-bottom: 5px; }
+.spalten .zeit-u.zeit-gemeinsam { align-items: flex-start; padding-top: 5px; }
+
+.saeule .ecke {
+  position: absolute;
+  top: 7px; right: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  line-height: 1;
+}
+.saeule .wer { font-size: 15px; font-weight: 700; line-height: 1; }
+.saeule .wo  { font-size: 10.5px; opacity: .55; }
+/* Fächer sitzen mittig in ihrem Zeitfenster, siehe faecherListe(). */
+.saeule .fach {
+  position: absolute;
+  left: 12px; right: 10px;
+  font-size: 12.5px;
+  line-height: 17px;
+  opacity: .8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.saeule .fach.neben-ecke { right: 46px; }
+.saeule .pause {
+  position: absolute;
+  left: 0; right: 0;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
 .saeule .anmerkung {
+  align-self: flex-start;
   font-size: 11.5px;
-  margin-top: 5px;
   padding: 2px 7px;
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 14%, transparent);
 }
-.saeule.kompakt .mitte { display: none; }
-.saeule.kompakt .zeit-o, .saeule.kompakt .zeit-u { font-size: 15px; }
 
 /* frei an diesem Tag */
 .saeule.frei {
@@ -437,31 +476,11 @@ code {
   align-items: flex-start;
   justify-content: center;
 }
-.saeule.frei .wer { color: var(--text); }
+.saeule.frei .mitte { display: flex; flex-direction: column; align-items: flex-start; }
+.saeule.frei .wer { font-size: 22px; font-weight: 700; line-height: 1; color: var(--text); }
 .saeule.frei .grund { font-size: 12px; margin-top: 3px; }
 
-/* --- Gleichzeitig-Markierung --- */
-
-.gleich {
-  position: absolute;
-  left: 0; right: 0;
-  border-top: 1.5px dashed var(--akzent);
-  pointer-events: none;
-  z-index: 2;
-}
-.gleich::after {
-  content: '';
-  position: absolute;
-  left: -4px;
-  top: -4.5px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--akzent);
-}
-
 /* Eingefärbte Beschriftung statt Sprechblase — passt in die schmale Achse. */
-.achse .tick-gleich { color: var(--akzent); font-weight: 700; }
 .achse .tick-jetzt  { color: var(--jetzt);  font-weight: 700; }
 
 .zusammen {

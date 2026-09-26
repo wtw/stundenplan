@@ -354,7 +354,9 @@ function tagAnsicht(t) {
   const von = Math.min.apply(null, inSchule.map(k => mn(t.kinder[k.kuerzel].bringen)));
   const bis = Math.max.apply(null, inSchule.map(k => mn(t.kinder[k.kuerzel].abholen)));
   const hoehe = Math.max(MIN_HOEHE, (bis - von) / 60 * PX_STUNDE);
-  const y = m => (m - von) / (bis - von) * hoehe;
+  // Über und unter den Säulen bleibt Platz für die großen Bring- und
+  // Abholzeiten, damit die Säule selbst ganz den Fächern gehört.
+  const y = m => ZEIT_AUSSEN + (m - von) / (bis - von) * hoehe;
 
   // Fallen Bring- oder Abholzeit zusammen?
   const gleichBringen = inSchule.length > 1 &&
@@ -370,11 +372,9 @@ function tagAnsicht(t) {
     if (m >= von && m <= bis) jetztM = m;
   }
 
-  // Besondere Zeiten bekommen eine eingefärbte Beschriftung statt einer
+  // Die Jetzt-Zeit bekommt eine eingefärbte Beschriftung statt einer
   // Sprechblase — die würde sonst über die Säulen ragen.
   const sonder = {};
-  if (gleichBringen) sonder[von] = 'gleich';
-  if (gleichAbholen) sonder[bis] = 'gleich';
   if (jetztM !== null) sonder[jetztM] = 'jetzt';
 
   const tick = (m, art) =>
@@ -396,17 +396,25 @@ function tagAnsicht(t) {
     ticks += tick(jetztM, 'jetzt');
   }
 
-  // Säulen
-  const spalten = kinder.map(k => saeule(k, t.kinder[k.kuerzel], von, bis, hoehe, y)).join('');
+  // Säulen. Gleiche Bring- oder Abholzeit steht nur einmal, mittig über
+  // bzw. unter beiden Säulen.
+  const spalten = kinder.map(k => saeule(k, t.kinder[k.kuerzel], von, bis, hoehe, y,
+                                         gleichBringen, gleichAbholen)).join('');
 
   let marken = '';
-  if (gleichBringen) marken += '<div class="gleich" style="top:' + y(von) + 'px"></div>';
-  if (gleichAbholen) marken += '<div class="gleich" style="top:' + y(bis) + 'px"></div>';
+  if (gleichBringen) {
+    marken += '<span class="zeit-o zeit-gemeinsam" style="top:' + (y(von) - ZEIT_AUSSEN) + 'px">' +
+              uhr(von) + '</span>';
+  }
+  if (gleichAbholen) {
+    marken += '<span class="zeit-u zeit-gemeinsam" style="top:' + y(bis) + 'px">' +
+              uhr(bis) + '</span>';
+  }
   if (jetztM !== null) marken += '<div class="jetzt" style="top:' + y(jetztM) + 'px"></div>';
 
   const tafel =
     '<div class="tafel">' +
-      '<div class="tafel-gitter" style="height:' + hoehe + 'px">' +
+      '<div class="tafel-gitter" style="height:' + (hoehe + 2 * ZEIT_AUSSEN) + 'px">' +
         '<div class="achse">' + ticks + '</div>' +
         '<div class="spalten" style="grid-template-columns:repeat(' + kinder.length + ',1fr)">' +
           '<div class="linien">' + linien + '</div>' +
@@ -425,14 +433,14 @@ function uhr(m) {
   return ('0' + h).slice(-2) + ':' + ('0' + r).slice(-2);
 }
 
-function saeule(kind, tag, von, bis, hoehe, y) {
+function saeule(kind, tag, von, bis, hoehe, y, ohneBringen, ohneAbholen) {
   const k = kind.kuerzel;
   const gewaehlt = GEWAEHLT === k;
 
   if (!tag || !tag.schule) {
     return '<button class="spalte" type="button" data-kind="' + k + '" ' +
              'aria-pressed="false" disabled>' +
-             '<div class="saeule frei" style="top:0;height:' + hoehe + 'px">' +
+             '<div class="saeule frei" style="top:' + y(von) + 'px;height:' + (y(bis) - y(von)) + 'px">' +
                '<div class="mitte">' +
                  '<span class="wer">' + esc(k) + '</span>' +
                  '<span class="grund">' + esc((tag && tag.grund) || 'kein Unterricht') + '</span>' +
@@ -443,8 +451,7 @@ function saeule(kind, tag, von, bis, hoehe, y) {
 
   const a = mn(tag.bringen), b = mn(tag.abholen);
   const top = y(a);
-  const h   = Math.max(46, y(b) - y(a));
-  const kompakt = h < 100 ? ' kompakt' : '';
+  const h   = Math.max(30, y(b) - y(a));
 
   const anmerkung = tag.quelle
     ? '<span class="anmerkung">' +
@@ -454,17 +461,82 @@ function saeule(kind, tag, von, bis, hoehe, y) {
 
   return '<button class="spalte" type="button" data-kind="' + k + '" ' +
            'aria-pressed="' + (gewaehlt ? 'true' : 'false') + '">' +
-           '<div class="saeule' + kompakt + '" style="top:' + top + 'px;height:' + h + 'px">' +
-             '<span class="zeit-o">' + esc(tag.bringen) + '</span>' +
-             '<span class="mitte">' +
+           (ohneBringen ? '' :
+             '<span class="zeit-o" style="top:' + (top - ZEIT_AUSSEN) + 'px">' + esc(tag.bringen) + '</span>') +
+           '<div class="saeule" style="top:' + top + 'px;height:' + h + 'px">' +
+             '<span class="ecke">' +
                '<span class="wer">' + esc(k) + '</span>' +
                '<span class="wo">' + esc(kind.klasse) + '</span>' +
-               '<span class="dauer">' + dauerText(a, b) + '</span>' +
-               anmerkung +
              '</span>' +
-             '<span class="zeit-u">' + esc(tag.abholen) + '</span>' +
+             anmerkung +
+             faecherListe(tag, a, b, y, top, h, anmerkung ? 34 : 0) +
            '</div>' +
+           (ohneAbholen ? '' :
+             '<span class="zeit-u" style="top:' + (top + h) + 'px">' + esc(tag.abholen) + '</span>') +
          '</button>';
+}
+
+const ZEIT_AUSSEN = 30;  // Höhe für die großen Zeiten über und unter der Säule
+const FACH_RAND   = 3;   // Abstand der Fächer zum Säulenrand
+const FACH_ZEILE  = 17;
+const ECKE_BIS    = 24;  // bis hierhin reicht das Kürzel oben rechts
+
+/**
+ * Die Fächer zwischen Bringen und Abholen, leise und mittig in ihrem
+ * Zeitfenster – so passen sie zur Achse. Pausen liegen als blasses Band
+ * dazwischen. Ganztag und Ausfälle bleiben weg, die zeigt der Tipp auf die
+ * Säule. Doppelstunden erscheinen einmal. Überlappen sich Fächer, rücken sie
+ * auseinander; was dann nicht passt, entfällt.
+ */
+function faecherListe(tag, a, b, y, top, h, extraKopf) {
+  const bloecke = [];
+  (tag.stunden || []).forEach(s => {
+    if (!s.unterricht || s.entfaellt || !s.fach) return;
+    if (mn(s.bis) <= a || mn(s.von) >= b) return;
+    const vorher = bloecke[bloecke.length - 1];
+    if (vorher && vorher.fach === s.fach && vorher.bis === s.von) { vorher.bis = s.bis; return; }
+    bloecke.push({ fach: s.fach, von: s.von, bis: s.bis });
+  });
+
+  const kopf = FACH_RAND + extraKopf;
+  const fuss = h - FACH_RAND;
+  const platz = Math.max(0, Math.floor((fuss - kopf) / FACH_ZEILE));
+  const zeigen = bloecke.slice(0, platz);
+
+  // Wunschhöhe: Mitte des Zeitfensters. Dann nach unten schieben, was sich
+  // überlappt, und von unten her nach oben, was über den Rand ragt.
+  const tops = [];
+  let frei = kopf;
+  zeigen.forEach(bl => {
+    const o = y(Math.max(mn(bl.von), a)) - top;
+    const u = y(Math.min(mn(bl.bis), b)) - top;
+    const t = Math.max((o + u - FACH_ZEILE) / 2, frei);
+    tops.push(t);
+    frei = t + FACH_ZEILE;
+  });
+  let grenze = fuss;
+  for (let i = tops.length - 1; i >= 0; i--) {
+    tops[i] = Math.min(tops[i], grenze - FACH_ZEILE);
+    grenze = tops[i];
+  }
+
+  // Pausenbänder; wo ein verschobenes Fach hineinragt, weicht das Band.
+  let pausen = '';
+  for (let i = 1; i < bloecke.length; i++) {
+    const p0 = mn(bloecke[i - 1].bis), p1 = mn(bloecke[i].von);
+    if (p1 <= p0) continue;
+    let o = y(p0) - top, u = y(p1) - top;
+    if (i - 1 < tops.length) o = Math.max(o, tops[i - 1] + FACH_ZEILE + 2);
+    if (i < tops.length)     u = Math.min(u, tops[i] - 2);
+    if (u - o < 6) continue;
+    pausen += '<span class="pause" style="top:' + o + 'px;height:' + (u - o) + 'px"></span>';
+  }
+
+  // Ganz oben weicht ein Fach dem Kürzel in der Ecke.
+  return pausen + zeigen.map((bl, i) =>
+    '<span class="fach' + (tops[i] < ECKE_BIS ? ' neben-ecke' : '') +
+    '" style="top:' + tops[i] + 'px">' + esc(bl.fach) + '</span>'
+  ).join('');
 }
 
 /** Die eine Zeile, die man morgens wirklich liest. */
@@ -500,7 +572,8 @@ function detailBlock(t) {
   return '<div class="detail">' +
     '<div class="detail-kopf">' +
       '<span class="detail-punkt ' + GEWAEHLT.toLowerCase() + '"></span>' +
-      esc(GEWAEHLT) + ' · ' + esc(kind.klasse || '') + ' · alle Stunden' +
+      esc(GEWAEHLT) + ' · ' + esc(kind.klasse || '') + ' · ' +
+      dauerText(mn(tag.bringen), mn(tag.abholen)) + ' · alle Stunden' +
     '</div>' +
     '<div class="karte"><div class="stunden">' +
       tag.stunden.map(zeile).join('') +
